@@ -14,10 +14,11 @@ jobs:
 
       - name: Free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/lib/android
+          df -h
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
           sudo apt-get clean
+          docker system prune -af || true
+          df -h
 
       - name: Install Apptainer
         run: |
@@ -27,10 +28,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y apptainer
 
-      - name: Build SIF
+      - name: Configure Apptainer cache dirs
         run: |
+          echo "APPTAINER_TMPDIR=$GITHUB_WORKSPACE/tmp" >> $GITHUB_ENV
+          echo "APPTAINER_CACHEDIR=$GITHUB_WORKSPACE/cache" >> $GITHUB_ENV
+          mkdir -p "$GITHUB_WORKSPACE/tmp" "$GITHUB_WORKSPACE/cache"
+
+      - name: Build SIF (debug + space checks)
+        run: |
+          set -euxo pipefail
+          apptainer --version
+          df -h
           apptainer build scvi_env.sif scvi_gpu.def
           ls -lh scvi_env.sif
+          df -h
 
       - name: Upload SIF artifact
         uses: actions/upload-artifact@v4
@@ -38,3 +49,15 @@ jobs:
           name: scvi_env.sif
           path: scvi_env.sif
           if-no-files-found: error
+
+      # Option B (instead of artifacts): ship directly to CCV via scp
+      # Prereqs: add repo secret CCV_SSH_KEY (private key) and authorize its public key on CCV.
+      # - name: Copy to CCV via SCP
+      #   if: success()
+      #   env:
+      #     CCV_SSH_KEY: ${{ secrets.CCV_SSH_KEY }}
+      #   run: |
+      #     echo "$CCV_SSH_KEY" > key.pem
+      #     chmod 600 key.pem
+      #     scp -i key.pem -o StrictHostKeyChecking=no scvi_env.sif <YOUR_NETID>@ssh.ccv.brown.edu:/oscar/data/<YOUR_LAB>/containers/
+      #     rm key.pem
