@@ -1,21 +1,55 @@
 Bootstrap: docker
-From: nvcr.io/nvidia/pytorch:24.03-py3
+From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 
 %labels
-    Maintainer gchoudha@brown.edu
-    Description scRNA-seq environment with Scanpy + scVI (GPU-enabled)
+    Maintainer you@brown.edu
+    Description Torch-only Scanpy + scVI (GPU) for CCV
 
 %post
-    apt-get update && apt-get install -y python3-pip python3-dev git && \
-    pip install --upgrade pip wheel setuptools && \
-    pip install scanpy scvi-tools anndata pandas numpy scikit-learn umap-learn \
-                matplotlib seaborn plotly jupyterlab session-info && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    set -eux
+
+    # Minimal apt packages; add build-essential only if you must compile
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        python3-pip python3-dev git ca-certificates
+    # apt-get install -y --no-install-recommends build-essential
+
+    # Up-to-date pip toolchain (won't touch torch in base image)
+    python3 -m pip install --upgrade pip wheel setuptools
+
+    # Install Python deps; prefer wheels and avoid caching to reduce footprint
+    python3 -m pip install --no-cache-dir --prefer-binary \
+        scanpy==1.10.3 \
+        scvi-tools==1.1.5 \
+        anndata==0.10.9 \
+        pandas==2.2.3 \
+        numpy==1.26.4 \
+        scikit-learn==1.5.2 \
+        umap-learn==0.5.6 \
+        matplotlib==3.9.2 \
+        seaborn==0.13.2 \
+        plotly==5.24.1 \
+        jupyterlab==4.2.5 \
+        session-info==1.0.0
+
+    # Sanity check: ensure pip did NOT replace torch from the base image
+    python3 - <<'PY'
+import torch
+print("Torch:", torch.__version__)
+PY
+
+    # Clean caches to keep the image small
+    python3 -m pip cache purge || true
+    rm -rf /root/.cache/pip
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
 %environment
     export LC_ALL=C.UTF-8
     export LANG=C.UTF-8
     export MPLBACKEND=Agg
+    export SCVI_BACKEND=PYTORCH
 
 %runscript
-    jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token=''
+    exec jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token=''
+
