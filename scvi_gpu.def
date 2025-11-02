@@ -2,7 +2,7 @@ Bootstrap: docker
 From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 
 %labels
-    Maintainer you@brown.edu
+    Maintainer gchoudha@brown.edu
     Description Torch-only Scanpy + scVI (GPU) for CCV
 
 %post
