@@ -6,18 +6,14 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
     Description Torch-only Scanpy + scVI (GPU) for CCV
 
 %post
+    %post
     set -eux
-
-    # Minimal apt packages; add build-essential only if you must compile
     apt-get update
-    apt-get install -y --no-install-recommends \
-        python3-pip python3-dev git ca-certificates
-    # apt-get install -y --no-install-recommends build-essential
+    apt-get install -y --no-install-recommends python3-pip python3-dev git ca-certificates
+    # apt-get install -y --no-install-recommends build-essential  # only if needed
 
-    # Up-to-date pip toolchain (won't touch torch in base image)
     python3 -m pip install --upgrade pip wheel setuptools
 
-    # Install Python deps; prefer wheels and avoid caching to reduce footprint
     python3 -m pip install --no-cache-dir --prefer-binary \
         scanpy==1.10.3 \
         scvi-tools==1.1.5 \
@@ -32,13 +28,11 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
         jupyterlab==4.2.5 \
         session-info==1.0.0
 
-    # Sanity check: ensure pip did NOT replace torch from the base image
+    # sanity: confirm torch is still the base image version
     python3 - <<'PY'
-import torch
-print("Torch:", torch.__version__)
+import torch; print("Torch:", torch.__version__)
 PY
 
-    # Clean caches to keep the image small
     python3 -m pip cache purge || true
     rm -rf /root/.cache/pip
     apt-get clean
@@ -51,5 +45,6 @@ PY
     export SCVI_BACKEND=PYTORCH
 
 %runscript
-    exec jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token=''
+    exec jupyter lab --ip=0.0.0.0 --port=8888 --no-browser
+
 
