@@ -1,0 +1,45 @@
+name: scvi
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  # Python
+  - python=3.10
+  - pip
+
+  # Core GPU stack (CUDA 12.1 compatible with your base)
+  - pytorch=2.3.1
+  - pytorch-cuda=12.1
+  - cuda-version=12.1  # meta, helps constrain builds
+
+  # scverse + analysis
+  - scanpy=1.10.3
+  - anndata=0.10.9
+  - numpy=1.26
+  - pandas=2.2
+  - scipy=1.13
+  - scikit-learn=1.5
+  - umap-learn=0.5
+  - matplotlib=3.9
+  - pynndescent=0.5
+  - seaborn=0.13
+  - ipykernel
+  - ipywidgets
+  - jupyterlab=4.2
+  - rich>=13,<15
+
+  # scvi + friends (install via conda to bring consistent deps)
+  - scvi-tools=1.1.5
+  - pytorch-lightning=2.1
+  - pyro-ppl
+  - ml-collections
+  # (Keep JAX CPU to satisfy optional imports; it won’t be used by your Torch path)
+  - jax
+  - jaxlib
+
+  # R side via apt in the .def (not here)
+
+  - pip:
+      - scrublet==0.2.3
+      - annoy==1.17.3
