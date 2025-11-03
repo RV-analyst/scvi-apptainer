@@ -1,0 +1,80 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
+
+%labels
+    Maintainer gchoudha@brown.edu
+    Description Torch-only scVI + Scanpy + Scrublet + R (Seurat + zellkonverter) + Jupyter (CUDA 12.1)
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+    export MPLBACKEND=Agg
+    export SCVI_BACKEND=PYTORCH
+    export PYTHONUNBUFFERED=1
+    # R user lib inside container (so installs don’t go to home)
+    export R_LIBS_USER=/opt/R/site-library
+
+%post
+    set -eux
+
+    # ---------- OS deps ----------
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3-pip python3-dev git ca-certificates locales curl \
+        build-essential pkg-config \
+        # R & system libs for CRAN/Bioc packages
+        r-base r-base-dev littler \
+        libcurl4-openssl-dev libssl-dev libxml2-dev \
+        libhdf5-dev zlib1g-dev libbz2-dev liblzma-dev libzstd-dev \
+        libreadline-dev libpcre2-dev \
+        libfftw3-dev libtiff-dev libpng-dev libjpeg-dev \
+        pandoc
+    locale-gen en_US.UTF-8 || true
+    mkdir -p /opt/R/site-library && chmod -R 777 /opt/R/site-library
+
+    # ---------- Python toolchain ----------
+    python3 -m pip install --upgrade pip wheel setuptools
+
+    # Core Python stack (torch-only)
+    python3 -m pip install --no-cache-dir \
+        "scanpy==1.10.3" "anndata==0.10.9" "numpy==1.26.4" "pandas==2.2.3" \
+        "scikit-learn==1.5.2" "scipy==1.13.1" "umap-learn==0.5.6" \
+        "matplotlib==3.9.2" "scrublet==0.2.3" \
+        "torch==2.3.1" "pytorch-lightning<2.6" \
+        "ipywidgets==8.1.8" "ipykernel==6.29.5" "jupyterlab==4.2.5"
+
+    # Annoy (prefer wheel; if not, compile—g++ is present)
+    python3 -m pip install --no-cache-dir --only-binary=:all: "annoy==1.17.3" || \
+    python3 -m pip install --no-cache-dir "annoy==1.17.3"
+
+    # scvi-tools WITHOUT JAX deps (torch-only)
+    python3 -m pip install --no-cache-dir --no-deps "scvi-tools==1.1.5"
+
+    # ---------- R packages ----------
+    # Use fast CRAN mirror
+    echo 'options(repos=c(CRAN="https://cloud.r-project.org"))' >> /etc/R/Rprofile.site
+    # Preinstall compilers/libs already present; now install CRAN pkgs
+    Rscript -e 'install.packages(c("Seurat","SeuratDisk","qs","reticulate","IRkernel"))'
+    # Bioconductor pkgs for H5AD conversion
+    Rscript -e 'if(!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager"); \
+                BiocManager::install(c("SingleCellExperiment","zellkonverter","HDF5Array","rhdf5"), update=FALSE, ask=FALSE)'
+    # Register R kernel for Jupyter
+    Rscript -e 'IRkernel::installspec(name="ir", displayname="R (IRkernel)")'
+
+    # ---------- Sanity prints ----------
+    python3 - <<'PY'
+import torch, scanpy as sc, scvi, scrublet
+print("Torch:", torch.__version__, "CUDA avail:", torch.cuda.is_available())
+print("scanpy:", sc.__version__, "scvi-tools:", scvi.__version__, "scrublet:", scrublet.__version__)
+PY
+    Rscript -e 'sessionInfo(); cat("\\n[OK] R + IRkernel installed\\n")'
+
+    # ---------- Clean up ----------
+    python3 -m pip cache purge || true
+    rm -rf /root/.cache/pip
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+%runscript
+    # Jupyter Lab entrypoint
+    exec jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
