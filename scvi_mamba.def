@@ -1,0 +1,67 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
+
+%labels
+    Maintainer gchoudha@brown.edu
+    Description CCV image: scVI/Scanpy + R (Seurat) + Jupyter (CUDA 12.1), micromamba-managed
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    # --- Base tools + CRAN for R ---
+    apt-get update
+    apt-get install -y --no-install-recommends \
+      software-properties-common dirmngr gnupg ca-certificates curl locales \
+      build-essential pkg-config python3-pip python3-dev git
+    curl -fsSL https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc \
+      | gpg --dearmor -o /usr/share/keyrings/cran-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/cran-archive-keyring.gpg] https://cloud.r-project.org/bin/linux/ubuntu jammy-cran40/" \
+      > /etc/apt/sources.list.d/cran-r.list
+    apt-get update
+    apt-get install -y --no-install-recommends \
+      r-base r-base-dev littler \
+      libcurl4-openssl-dev libssl-dev libxml2-dev \
+      libhdf5-dev zlib1g-dev libbz2-dev liblzma-dev libzstd-dev \
+      libreadline-dev libpcre2-dev \
+      libfftw3-dev libtiff-dev libpng-dev libjpeg-dev \
+      pandoc
+    locale-gen en_US.UTF-8 || true
+    mkdir -p /opt/R/site-library && chmod -R 777 /opt/R/site-library
+
+    # --- Micromamba installer (single binary) ---
+    curl -L https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+    install -m 0755 bin/micromamba /usr/local/bin/micromamba
+    rm -rf bin
+    mkdir -p /opt/conda && chown -R root:root /opt/conda
+
+    # --- Create env from environment.yml (copied by GitHub Actions checkout) ---
+    micromamba create -y -p /opt/conda/envs/scvi -f /workspace/environment.yml
+    micromamba run -p /opt/conda/envs/scvi python -m ipykernel install --name scvi --display-name "Python (scvi)"
+
+    # --- R packages + IRkernel (use CRAN + Bioc) ---
+    echo 'options(repos=c(CRAN="https://cloud.r-project.org"))' >> /etc/R/Rprofile.site
+    Rscript -e 'install.packages(c("Seurat","SeuratDisk","qs","reticulate","IRkernel"))'
+    Rscript -e 'if(!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager"); BiocManager::install(c("SingleCellExperiment","zellkonverter","HDF5Array","rhdf5"), update=FALSE, ask=FALSE)'
+    Rscript -e 'IRkernel::installspec(name="ir", displayname="R (IRkernel)")'
+
+    # --- Quick smoke test (does NOT import scvi to keep build robust) ---
+    micromamba run -p /opt/conda/envs/scvi python - <<'PY'
+import torch, scanpy as sc
+print("Torch:", torch.__version__, "CUDA:", torch.cuda.is_available(), "| Scanpy:", sc.__version__)
+PY
+
+    # Cleanup
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+    micromamba clean -a -y || true
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+    export MPLBACKEND=Agg
+    export MAMBA_ROOT_PREFIX=/opt/conda
+    export PATH=/opt/conda/envs/scvi/bin:$PATH
+    export SCVI_BACKEND=PYTORCH
+
+%runscript
+    exec jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
