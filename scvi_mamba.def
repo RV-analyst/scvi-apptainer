@@ -4,6 +4,7 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 %labels
     Maintainer gchoudha@brown.edu
     Description CCV image: scVI/Scanpy + R (Seurat) + Jupyter (CUDA 12.1), micromamba-managed
+
 %files
     environment.yml /opt/stack/environment.yml
 
@@ -22,7 +23,7 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
       > /etc/apt/sources.list.d/cran-r.list
     apt-get update
     apt-get install -y --no-install-recommends \
-      r-base r-base-dev littler \
+      r-base-core r-base r-base-dev littler \
       libcurl4-openssl-dev libssl-dev libxml2-dev \
       libhdf5-dev zlib1g-dev libbz2-dev liblzma-dev libzstd-dev \
       libreadline-dev libpcre2-dev \
@@ -31,23 +32,31 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
     locale-gen en_US.UTF-8 || true
     mkdir -p /opt/R/site-library && chmod -R 777 /opt/R/site-library
 
+    # --- Verify R is present before using it ---
+    echo "[which R]"; which R || true
+    echo "[which Rscript]"; which Rscript || true
+    /usr/bin/R --version
+    /usr/bin/Rscript --version
+    test -x /usr/bin/Rscript || (echo "[ERROR] Rscript missing after install"; apt-cache policy r-base r-base-core; exit 1)
+
     # --- Micromamba installer (single binary) ---
     curl -L https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
     install -m 0755 bin/micromamba /usr/local/bin/micromamba
     rm -rf bin
     mkdir -p /opt/conda && chown -R root:root /opt/conda
+    export MAMBA_ROOT_PREFIX=/opt/conda
 
-    # --- Create env from environment.yml (copied by GitHub Actions checkout) ---
+    # --- Create env from environment.yml ---
     micromamba create -y -p /opt/conda/envs/scvi -f /opt/stack/environment.yml
     micromamba run -p /opt/conda/envs/scvi python -m ipykernel install --name scvi --display-name "Python (scvi)"
 
-    # --- R packages + IRkernel (use CRAN + Bioc) ---
+    # --- R packages + IRkernel (CRAN + Bioc) ---
     echo 'options(repos=c(CRAN="https://cloud.r-project.org"))' >> /etc/R/Rprofile.site
-    Rscript -e 'install.packages(c("Seurat","SeuratDisk","qs","reticulate","IRkernel"))'
-    Rscript -e 'if(!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager"); BiocManager::install(c("SingleCellExperiment","zellkonverter","HDF5Array","rhdf5"), update=FALSE, ask=FALSE)'
-    Rscript -e 'IRkernel::installspec(name="ir", displayname="R (IRkernel)")'
+    /usr/bin/Rscript -e 'install.packages(c("Seurat","SeuratDisk","qs","reticulate","IRkernel"), Ncpus = max(1, parallel::detectCores()-1))'
+    /usr/bin/Rscript -e 'if(!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager"); BiocManager::install(c("SingleCellExperiment","zellkonverter","HDF5Array","rhdf5"), update=FALSE, ask=FALSE)'
+    /usr/bin/Rscript -e 'IRkernel::installspec(name="ir", displayname="R (IRkernel)")'
 
-    # --- Quick smoke test (does NOT import scvi to keep build robust) ---
+    # --- Quick smoke test (no scvi import here) ---
     micromamba run -p /opt/conda/envs/scvi python - <<'PY'
 import torch, scanpy as sc
 print("Torch:", torch.__version__, "CUDA:", torch.cuda.is_available(), "| Scanpy:", sc.__version__)
