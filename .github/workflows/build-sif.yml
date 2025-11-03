@@ -16,7 +16,6 @@ jobs:
         run: |
           df -h
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
-          sudo apt-get clean
           docker system prune -af || true
           df -h
 
@@ -39,25 +38,13 @@ jobs:
           set -euxo pipefail
           apptainer --version
           df -h
-          apptainer build scvi_env.sif scvi_gpu.def
-          ls -lh scvi_env.sif
+          apptainer build scvi_ccv.sif scvi_ccv.def
+          ls -lh scvi_ccv.sif
           df -h
 
       - name: Upload SIF artifact
         uses: actions/upload-artifact@v4
         with:
-          name: scvi_env.sif
-          path: scvi_env.sif
+          name: scvi_ccv.sif
+          path: scvi_ccv.sif
           if-no-files-found: error
-
-      # Option B (instead of artifacts): ship directly to CCV via scp
-      # Prereqs: add repo secret CCV_SSH_KEY (private key) and authorize its public key on CCV.
-      # - name: Copy to CCV via SCP
-      #   if: success()
-      #   env:
-      #     CCV_SSH_KEY: ${{ secrets.CCV_SSH_KEY }}
-      #   run: |
-      #     echo "$CCV_SSH_KEY" > key.pem
-      #     chmod 600 key.pem
-      #     scp -i key.pem -o StrictHostKeyChecking=no scvi_env.sif <YOUR_NETID>@ssh.ccv.brown.edu:/oscar/data/<YOUR_LAB>/containers/
-      #     rm key.pem
