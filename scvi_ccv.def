@@ -16,13 +16,13 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 
 %post
     set -eux
+    export DEBIAN_FRONTEND=noninteractive
 
     # ---------- OS deps ----------
     apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    apt-get install -y --no-install-recommends \
         python3-pip python3-dev git ca-certificates locales curl \
         build-essential pkg-config \
-        # R & system libs for CRAN/Bioc packages
         r-base r-base-dev littler \
         libcurl4-openssl-dev libssl-dev libxml2-dev \
         libhdf5-dev zlib1g-dev libbz2-dev liblzma-dev libzstd-dev \
@@ -51,14 +51,9 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
     python3 -m pip install --no-cache-dir --no-deps "scvi-tools==1.1.5"
 
     # ---------- R packages ----------
-    # Use fast CRAN mirror
     echo 'options(repos=c(CRAN="https://cloud.r-project.org"))' >> /etc/R/Rprofile.site
-    # Preinstall compilers/libs already present; now install CRAN pkgs
     Rscript -e 'install.packages(c("Seurat","SeuratDisk","qs","reticulate","IRkernel"))'
-    # Bioconductor pkgs for H5AD conversion
-    Rscript -e 'if(!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager"); \
-                BiocManager::install(c("SingleCellExperiment","zellkonverter","HDF5Array","rhdf5"), update=FALSE, ask=FALSE)'
-    # Register R kernel for Jupyter
+    Rscript -e 'if(!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager"); BiocManager::install(c("SingleCellExperiment","zellkonverter","HDF5Array","rhdf5"), update=FALSE, ask=FALSE)'
     Rscript -e 'IRkernel::installspec(name="ir", displayname="R (IRkernel)")'
 
     # ---------- Sanity prints ----------
