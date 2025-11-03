@@ -38,13 +38,13 @@ jobs:
           set -euxo pipefail
           apptainer --version
           df -h
-          apptainer build scvi_ccv.sif scvi_ccv.def
-          ls -lh scvi_ccv.sif
+          apptainer build scvi_mamba.sif scvi_mamba.def
+          ls -lh scvi_mamba.sif
           df -h
 
       - name: Upload SIF artifact
         uses: actions/upload-artifact@v4
         with:
-          name: scvi_ccv.sif
-          path: scvi_ccv.sif
+          name: scvi_mamba.sif
+          path: scvi_mamba.sif
           if-no-files-found: error
