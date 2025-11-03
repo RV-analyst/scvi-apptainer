@@ -37,12 +37,13 @@ https://cloud.r-project.org/bin/linux/ubuntu jammy-cran40/" \
     # --- Python stack (Torch-only) ---
     python3 -m pip install --upgrade pip wheel setuptools
 
-    python3 -m pip install --no-cache-dir \
-        "scanpy==1.10.3" "anndata==0.10.9" "numpy==1.26.4" "pandas==2.2.3" \
-        "scikit-learn==1.5.2" "scipy==1.13.1" "umap-learn==0.5.6" \
-        "matplotlib==3.9.2" "scrublet==0.2.3" \
-        "torch==2.3.1" "pytorch-lightning<2.6" \
-        "ipywidgets==8.1.8" "ipykernel==6.29.5" "jupyterlab==4.2.5"
+python3 -m pip install --no-cache-dir \
+  scanpy==1.10.3 anndata==0.10.9 numpy==1.26.4 pandas==2.2.3 \
+  scikit-learn==1.5.2 scipy==1.13.1 umap-learn==0.5.6 \
+  matplotlib==3.9.2 scrublet==0.2.3 \
+  torch==2.3.1 \
+  lightning==2.1.4 pytorch-lightning==2.1.4 \
+  ipywidgets==8.1.8 ipykernel==6.29.5 jupyterlab==4.2.5
 
     python3 -m pip install --no-cache-dir --only-binary=:all: "annoy==1.17.3" || \
     python3 -m pip install --no-cache-dir "annoy==1.17.3"
@@ -57,9 +58,10 @@ https://cloud.r-project.org/bin/linux/ubuntu jammy-cran40/" \
 
     # --- Sanity check ---
     python3 - <<'PY'
-import torch, scanpy as sc, scvi, scrublet
-print("Torch:", torch.__version__, "CUDA available:", torch.cuda.is_available())
-print("scanpy:", sc.__version__, "scvi-tools:", scvi.__version__, "scrublet:", scrublet.__version__)
+import torch, scanpy as sc, scvi, scrublet, lightning
+from lightning.pytorch import seed_everything
+print("Torch:", torch.__version__, "CUDA:", torch.cuda.is_available())
+print("scanpy:", sc.__version__, "scvi-tools:", scvi.__version__, "scrublet:", scrublet.__version__, "lightning:", lightning.__version__)
 PY
     Rscript -e 'sessionInfo(); cat("\\n[OK] R + IRkernel installed\\n")'
 
