@@ -4,6 +4,8 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 %labels
     Maintainer gchoudha@brown.edu
     Description CCV image: scVI/Scanpy + R (Seurat) + Jupyter (CUDA 12.1), micromamba-managed
+%files
+    environment.yml /opt/stack/environment.yml
 
 %post
     set -eux
@@ -36,7 +38,7 @@ From: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
     mkdir -p /opt/conda && chown -R root:root /opt/conda
 
     # --- Create env from environment.yml (copied by GitHub Actions checkout) ---
-    micromamba create -y -p /opt/conda/envs/scvi -f /environment.yml
+    micromamba create -y -p /opt/conda/envs/scvi -f /opt/stack/environment.yml
     micromamba run -p /opt/conda/envs/scvi python -m ipykernel install --name scvi --display-name "Python (scvi)"
 
     # --- R packages + IRkernel (use CRAN + Bioc) ---
