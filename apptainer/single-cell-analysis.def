@@ -1,25 +1,23 @@
 Bootstrap: docker
-From: nvcr.io/nvidia/single-cell-analysis:24.06
+
+# --- THIS IS THE FIX ---
+# We are now pulling the official, public RAPIDS container
+# (version 25.04, as seen in the text you pasted)
+# instead of the private blueprint container.
+From: nvcr.io/nvidia/rapidsai/rapidsai:25.04-cuda12.0-py3.10-ubuntu22.04-run
+# ---
 
 %labels
-    Maintainer "Your Name <your_email@brown.edu>"
-    Description "NVIDIA Single-Cell Analysis container (scvi, Seurat, RAPIDS) for Brown Oscar cluster. Source: https://build.nvidia.com/nvidia/single-cell-analysis"
-    Version "24.06"
-
-%post
-    # No %post steps are needed!
-    # The base NVIDIA container already has all Python (scvi, scanpy) and R (Seurat)
-    # packages pre-installed. This avoids all the 'Rscript' and 'micromamba'
-    # path errors you were seeing before.
-    echo "NVIDIA container successfully converted to Apptainer."
-
-%environment
-    # Set standard locale environment variables
-    # The base container should have its PATH and other variables set correctly.
-    export LC_ALL=C.UTF-8
-    export LANG=C.UTF-8
+    Author: gchoudha@brown.edu
+    Description: Apptainer image converted from the public NVIDIA RAPIDS container (v25.04)
+    Contains: RAPIDS, scvi-tools, Seurat, PyTorch, Jupyter (CUDA 12.0)
 
 %runscript
-    echo "This container is intended for interactive use on an HPC cluster."
-    echo "Run with: apptainer shell --nv <image.sif>"
-    echo "Inside the shell, you can run 'python' or 'R'."
+    echo "Container successfully converted from nvcr.io/nvidia/rapidsai/rapidsai:25.04..."
+    echo "Run 'jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root' to start."
+    exec /bin/bash
+
+%post
+    echo "Apptainer build complete. This container has RAPIDS and the single-cell analysis stack pre-installed."
+    # No %post steps are needed as the container is pre-built by NVIDIA.
+
