@@ -1,13 +1,12 @@
 Bootstrap: docker
 
 # --- THIS IS THE FIX ---
-# We are now pulling the official, public RAPIDS container
-# (version 25.04, as seen in the text you pasted)
-# instead of the private blueprint container.
 #
-# The "manifest unknown" error was because the tag was wrong.
-# The 25.04 + cuda12.0 tag uses py3.11, NOT py3.10.
-From: nvcr.io/nvidia/rapidsai/rapidsai:25.04-cuda12.0-py3.11-ubuntu22.04-run
+# The "manifest unknown" error was because of a typo in the tag.
+# It should end in "-runtime", not "-run".
+#
+# Corrected Tag:
+From: nvcr.io/nvidia/rapidsai/rapidsai:25.04-cuda12.0-py3.11-ubuntu22.04-runtime
 # ---
 
 %labels
@@ -16,7 +15,7 @@ From: nvcr.io/nvidia/rapidsai/rapidsai:25.04-cuda12.0-py3.11-ubuntu22.04-run
     Contains: RAPIDS, scvi-tools, Seurat, PyTorch, Jupyter (CUDA 12.0)
 
 %runscript
-    echo "Container successfully converted from nvcr.io/nvidia/rapidsai/rapidsai:25.04-cuda12.0-py3.11-ubuntu22.04-run"
+    echo "Container successfully converted from nvcr.io/nvidia/rapidsai/rapidsai:25.04-cuda12.0-py3.11-ubuntu22.04-runtime"
     echo "Run 'jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root' to start."
     exec /bin/bash
 
