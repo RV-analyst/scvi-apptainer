@@ -1,25 +1,24 @@
 Bootstrap: docker
-
-# --- THIS IS THE FIX ---
-#
-# The "manifest unknown" error was because of a typo in the tag.
-# It should end in "-runtime", not "-run".
-#
-# Corrected Tag:
-From: nvcr.io/nvidia/rapidsai/rapidsai:25.04-cuda12.0-py3.11-ubuntu22.04-runtime
-# ---
+From: nvcr.io/nvidia/rapidsai/notebooks:25.04-cuda12.8-py3.11
+# If you prefer CUDA 12.0, swap the line above to:
+# From: nvcr.io/nvidia/rapidsai/notebooks:25.04-cuda12.0-py3.11
 
 %labels
     Author: gchoudha@brown.edu
-    Description: Apptainer image converted from the public NVIDIA RAPIDS container (v25.04)
-    Contains: RAPIDS, scvi-tools, Seurat, PyTorch, Jupyter (CUDA 12.0)
+    Description: RAPIDS 25.04 + Jupyter for NVIDIA Single-Cell Blueprint (CUDA 12.x, Py3.11)
+    Contains: RAPIDS, PyTorch, JupyterLab; easy to extend with scvi-tools/scanpy/etc.
 
-%runscript
-    echo "Container successfully converted from nvcr.io/nvidia/rapidsai/rapidsai:25.04-cuda12.0-py3.11-ubuntu22.04-runtime"
-    echo "Run 'jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root' to start."
-    exec /bin/bash
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
 
 %post
-    echo "Apptainer build complete. This container has RAPIDS and the single-cell analysis stack pre-installed."
-    # No %post steps are needed as the container is pre-built by NVIDIA.
+    set -eux
+    # Add anything you want baked in here (optional). Examples:
+    # pip install --no-cache-dir "rapids-singlecell>=24.12" scvi-tools scanpy anndata
+    # You can also apt-get R + Seurat, but consider a separate R SIF to keep this lean.
 
+%runscript
+    echo "RAPIDS 25.04 Jupyter (GPU-enabled). To start:"
+    echo "  jupyter lab --ip=0.0.0.0 --port=\${PORT:-8888} --no-browser --allow-root"
+    exec /bin/bash
