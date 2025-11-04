@@ -1,10 +1,7 @@
 name: Build Apptainer SIF from NVIDIA RAPIDS
 
 on:
-  # Allow manual trigger from the GitHub "Actions" tab
   workflow_dispatch:
-
-  # Automatically trigger if definition or workflow changes
   push:
     paths:
       - 'apptainer/single-cell-analysis.def'
@@ -13,18 +10,29 @@ on:
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
+
     steps:
-      # --------------------------
-      # 1. Checkout repository
-      # --------------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # --------------------------
-      # 2. Install Apptainer (setuid-enabled build)
-      # --------------------------
+      # ------- Free a LOT of disk space on GitHub runner -------
+      - name: Free disk space
+        run: |
+          set -eux
+          echo "Before cleanup:"
+          df -h
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
+          sudo apt-get clean
+          sudo docker system prune -af || true
+          sudo rm -rf /var/lib/docker/overlay2 || true
+          sudo rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
+          echo "After cleanup:"
+          df -h
+
+      # ------- Install Apptainer with setuid support -------
       - name: Install Apptainer from PPA
         run: |
+          set -eux
           sudo apt-get update
           sudo apt-get install -y software-properties-common
           sudo add-apt-repository -y ppa:apptainer/ppa
@@ -32,32 +40,40 @@ jobs:
           sudo apt-get install -y apptainer
           apptainer --version
 
-      # --------------------------
-      # 3. Login to NGC (nvcr.io)
-      # --------------------------
+      # ------- Prepare large temp/cache dirs on the workspace disk -------
+      - name: Prepare build dirs and env
+        run: |
+          set -eux
+          mkdir -p "$GITHUB_WORKSPACE/tmp" "$GITHUB_WORKSPACE/cache"
+          echo "APPTAINER_TMPDIR=$GITHUB_WORKSPACE/tmp" >> $GITHUB_ENV
+          echo "APPTAINER_CACHEDIR=$GITHUB_WORKSPACE/cache" >> $GITHUB_ENV
+          # Optional: use zstd (fast) for squashfs compression
+          echo "APPTAINER_SQUASHFS_COMPRESSOR=zstd" >> $GITHUB_ENV
+          df -h
+
+      # ------- Login to nvcr.io (NGC) -------
       - name: Login to nvcr.io (NGC)
         env:
           NGC_DOCKER_PASS: ${{ secrets.NGC_DOCKER_PASS }}
         run: |
-          echo "Logging into nvcr.io with NGC credentials..."
+          set -eux
           printf "%s" "$NGC_DOCKER_PASS" | sudo -E apptainer registry login \
             --username '$oauthtoken' --password-stdin docker://nvcr.io
 
-      # --------------------------
-      # 4. Build the Apptainer image
-      # --------------------------
+      # ------- Build the Apptainer image (uses huge workspace tmp) -------
       - name: Build Apptainer Image (.sif)
         env:
           APPTAINER_DOCKER_USERNAME: "$oauthtoken"
           APPTAINER_DOCKER_PASSWORD: ${{ secrets.NGC_DOCKER_PASS }}
         run: |
-          echo "Starting Apptainer build..."
-          sudo -E apptainer build sc-analysis.sif apptainer/single-cell-analysis.def
-          echo "Build complete: sc-analysis.sif"
+          set -eux
+          echo "Starting Apptainer build (tmp: $APPTAINER_TMPDIR, cache: $APPTAINER_CACHEDIR)…"
+          sudo -E apptainer build --tmpdir "$APPTAINER_TMPDIR" sc-analysis.sif apptainer/single-cell-analysis.def
+          ls -lh sc-analysis*.sif
+          echo "Disk after build:"
+          df -h
 
-      # --------------------------
-      # 5. Upload image artifact
-      # --------------------------
+      # ------- Upload artifact -------
       - name: Upload Apptainer .sif as Artifact
         uses: actions/upload-artifact@v4
         with:
