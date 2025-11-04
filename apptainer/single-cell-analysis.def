@@ -1,24 +1,43 @@
 Bootstrap: docker
-From: nvcr.io/nvidia/rapidsai/notebooks:25.04-cuda12.8-py3.11
-# If you prefer CUDA 12.0, swap the line above to:
-# From: nvcr.io/nvidia/rapidsai/notebooks:25.04-cuda12.0-py3.11
+From: nvcr.io/nvidia/rapidsai/base:25.04-cuda12.0-py3.11
+# If you need CUDA 12.8 instead:
+# From: nvcr.io/nvidia/rapidsai/base:25.04-cuda12.8-py3.11
 
 %labels
     Author: gchoudha@brown.edu
-    Description: RAPIDS 25.04 + Jupyter for NVIDIA Single-Cell Blueprint (CUDA 12.x, Py3.11)
-    Contains: RAPIDS, PyTorch, JupyterLab; easy to extend with scvi-tools/scanpy/etc.
+    Description: RAPIDS 25.04 (base) + minimal single-cell stack (size-optimized)
 
 %environment
     export LC_ALL=C.UTF-8
     export LANG=C.UTF-8
+    export PYTHONUNBUFFERED=1
 
 %post
     set -eux
-    # Add anything you want baked in here (optional). Examples:
-    # pip install --no-cache-dir "rapids-singlecell>=24.12" scvi-tools scanpy anndata
-    # You can also apt-get R + Seurat, but consider a separate R SIF to keep this lean.
+
+    # ---- Minimal scientific stack (keep small) ----
+    # Using pip avoids heavy conda solving; base image already has CUDA + libs.
+    # Pin scvi-tools to a stable recent version; add scanpy/anndata.
+    pip install --no-cache-dir \
+        scvi-tools==1.1.5 \
+        scanpy==1.10.3 \
+        anndata==0.10.9 \
+        rapids-singlecell>=24.12 \
+        jupyterlab
+
+    # Optional: common utils
+    pip install --no-cache-dir numba numpy pandas matplotlib ipykernel
+
+    # ---- Clean up to shrink image ----
+    conda clean -afy || true
+    pip cache purge || true
+    rm -rf /root/.cache /opt/conda/pkgs || true
+    find / -type d -name "__pycache__" -prune -exec rm -rf {} + || true
+    # Remove sample data, docs, man pages (non-essential)
+    rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* || true
 
 %runscript
-    echo "RAPIDS 25.04 Jupyter (GPU-enabled). To start:"
+    echo "GPU-enabled RAPIDS (base) + scvi-tools + scanpy."
+    echo "Start Jupyter with:"
     echo "  jupyter lab --ip=0.0.0.0 --port=\${PORT:-8888} --no-browser --allow-root"
     exec /bin/bash
