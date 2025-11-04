@@ -29,9 +29,10 @@ jobs:
 
       - name: Build Apptainer Image (.sif)
         run: |
-          # --- UPDATED ---
-          # Point the build command to the new file path
-          apptainer build --fakeroot sc-analysis.sif apptainer/single-cell-analysis.def
+          # --- THIS IS THE FIX for "mount namespace" ERROR ---
+          # Use 'sudo' to run the build with real root privileges
+          # This avoids the error with '--fakeroot' (user namespaces) in GitHub Actions
+          sudo apptainer build sc-analysis.sif apptainer/single-cell-analysis.def
 
       - name: Upload Apptainer .sif as Artifact
         uses: actions/upload-artifact@v4
