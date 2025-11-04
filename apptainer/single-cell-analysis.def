@@ -1,0 +1,25 @@
+Bootstrap: docker
+From: nvcr.io/nvidia/single-cell-analysis:24.06
+
+%labels
+    Maintainer "Your Name <your_email@brown.edu>"
+    Description "NVIDIA Single-Cell Analysis container (scvi, Seurat, RAPIDS) for Brown Oscar cluster. Source: https://build.nvidia.com/nvidia/single-cell-analysis"
+    Version "24.06"
+
+%post
+    # No %post steps are needed!
+    # The base NVIDIA container already has all Python (scvi, scanpy) and R (Seurat)
+    # packages pre-installed. This avoids all the 'Rscript' and 'micromamba'
+    # path errors you were seeing before.
+    echo "NVIDIA container successfully converted to Apptainer."
+
+%environment
+    # Set standard locale environment variables
+    # The base container should have its PATH and other variables set correctly.
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    echo "This container is intended for interactive use on an HPC cluster."
+    echo "Run with: apptainer shell --nv <image.sif>"
+    echo "Inside the shell, you can run 'python' or 'R'."
