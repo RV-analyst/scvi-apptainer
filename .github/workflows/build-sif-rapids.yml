@@ -1,4 +1,4 @@
-name: Build Apptainer SIF from NVIDIA RAPIDS
+name: Build Apptainer SIF (RAPIDS base, space-optimized)
 
 on:
   workflow_dispatch:
@@ -10,26 +10,27 @@ on:
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ------- Free a LOT of disk space on GitHub runner -------
-      - name: Free disk space
+      # 1) Free tons of space (40–70+ GB)
+      - name: Free disk space aggressively
         run: |
           set -eux
-          echo "Before cleanup:"
-          df -h
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
-          sudo apt-get clean
+          echo "Before cleanup:" && df -h
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          sudo rm -rf /usr/lib/jvm || true
+          sudo rm -rf /usr/local/share/boost || true
+          sudo rm -rf /usr/local/lib/node_modules || true
           sudo docker system prune -af || true
-          sudo rm -rf /var/lib/docker/overlay2 || true
+          sudo rm -rf /var/lib/docker || true
+          sudo apt-get clean
           sudo rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
-          echo "After cleanup:"
-          df -h
+          echo "After cleanup:" && df -h
 
-      # ------- Install Apptainer with setuid support -------
+      # 2) Install Apptainer (setuid) for privileged build
       - name: Install Apptainer from PPA
         run: |
           set -eux
@@ -37,21 +38,22 @@ jobs:
           sudo apt-get install -y software-properties-common
           sudo add-apt-repository -y ppa:apptainer/ppa
           sudo apt-get update
-          sudo apt-get install -y apptainer
+          sudo apt-get install -y apptainer squashfs-tools
           apptainer --version
 
-      # ------- Prepare large temp/cache dirs on the workspace disk -------
+      # 3) Prepare dirs + env (use /tmp for output & tmp; cache in workspace to persist across steps)
       - name: Prepare build dirs and env
         run: |
           set -eux
-          mkdir -p "$GITHUB_WORKSPACE/tmp" "$GITHUB_WORKSPACE/cache"
-          echo "APPTAINER_TMPDIR=$GITHUB_WORKSPACE/tmp" >> $GITHUB_ENV
+          mkdir -p "$GITHUB_WORKSPACE/cache"
+          echo "APPTAINER_TMPDIR=/tmp" >> $GITHUB_ENV
           echo "APPTAINER_CACHEDIR=$GITHUB_WORKSPACE/cache" >> $GITHUB_ENV
-          # Optional: use zstd (fast) for squashfs compression
           echo "APPTAINER_SQUASHFS_COMPRESSOR=zstd" >> $GITHUB_ENV
+          echo "APPTAINER_SQUASHFS_COMPRESSOR_OPTS=-Xcompression-level 22" >> $GITHUB_ENV
+          echo "OUTPUT_SIF=/tmp/sc-analysis.sif" >> $GITHUB_ENV
           df -h
 
-      # ------- Login to nvcr.io (NGC) -------
+      # 4) Login to nvcr.io (NGC)
       - name: Login to nvcr.io (NGC)
         env:
           NGC_DOCKER_PASS: ${{ secrets.NGC_DOCKER_PASS }}
@@ -60,20 +62,23 @@ jobs:
           printf "%s" "$NGC_DOCKER_PASS" | sudo -E apptainer registry login \
             --username '$oauthtoken' --password-stdin docker://nvcr.io
 
-      # ------- Build the Apptainer image (uses huge workspace tmp) -------
+      # 5) Build SIF (to /tmp), then move to workspace
       - name: Build Apptainer Image (.sif)
         env:
           APPTAINER_DOCKER_USERNAME: "$oauthtoken"
           APPTAINER_DOCKER_PASSWORD: ${{ secrets.NGC_DOCKER_PASS }}
+          APPTAINER_TMPDIR: ${{ env.APPTAINER_TMPDIR }}
+          APPTAINER_CACHEDIR: ${{ env.APPTAINER_CACHEDIR }}
+          OUTPUT_SIF: ${{ env.OUTPUT_SIF }}
         run: |
           set -eux
-          echo "Starting Apptainer build (tmp: $APPTAINER_TMPDIR, cache: $APPTAINER_CACHEDIR)…"
-          sudo -E apptainer build --tmpdir "$APPTAINER_TMPDIR" sc-analysis.sif apptainer/single-cell-analysis.def
-          ls -lh sc-analysis*.sif
-          echo "Disk after build:"
-          df -h
+          echo "Building to $OUTPUT_SIF (tmp: $APPTAINER_TMPDIR, cache: $APPTAINER_CACHEDIR)…"
+          sudo -E apptainer build --tmpdir "$APPTAINER_TMPDIR" "$OUTPUT_SIF" apptainer/single-cell-analysis.def
+          sudo mv "$OUTPUT_SIF" "$GITHUB_WORKSPACE/sc-analysis.sif"
+          ls -lh "$GITHUB_WORKSPACE"/sc-analysis*.sif
+          echo "Disk after build:" && df -h
 
-      # ------- Upload artifact -------
+      # 6) Upload artifact
       - name: Upload Apptainer .sif as Artifact
         uses: actions/upload-artifact@v4
         with:
