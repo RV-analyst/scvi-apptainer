@@ -1,9 +1,13 @@
-name: Build SIF
+name: Build SIF (micromamba)
 
 on:
   workflow_dispatch:
   push:
     branches: [ main, master ]
+    paths:
+      - "scvi_mamba.def"
+      - "environment.yml"
+      - ".github/workflows/build_sif.yml"
 
 jobs:
   build:
@@ -14,13 +18,15 @@ jobs:
 
       - name: Free disk space
         run: |
+          set -euxo pipefail
           df -h
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
           docker system prune -af || true
           df -h
 
       - name: Install Apptainer
         run: |
+          set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y software-properties-common
           sudo add-apt-repository -y ppa:apptainer/ppa
@@ -29,9 +35,19 @@ jobs:
 
       - name: Configure Apptainer cache dirs
         run: |
-          echo "APPTAINER_TMPDIR=$GITHUB_WORKSPACE/tmp" >> $GITHUB_ENV
+          echo "APPTAINER_TMPDIR=$GITHUB_WORKSPACE/tmp"   >> $GITHUB_ENV
           echo "APPTAINER_CACHEDIR=$GITHUB_WORKSPACE/cache" >> $GITHUB_ENV
           mkdir -p "$GITHUB_WORKSPACE/tmp" "$GITHUB_WORKSPACE/cache"
+
+      - name: Sanity check inputs
+        run: |
+          set -euxo pipefail
+          echo "[pwd] $(pwd)"
+          ls -la
+          echo "----- scvi_mamba.def (top) -----"
+          head -n 40 scvi_mamba.def
+          echo "----- environment.yml (top) -----"
+          head -n 40 environment.yml
 
       - name: Build SIF (debug + space checks)
         run: |
