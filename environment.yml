@@ -4,16 +4,16 @@ channels:
   - pytorch
   - nvidia
 dependencies:
-  # Python
+  # Core
   - python=3.10
   - pip
 
-  # Core GPU stack (CUDA 12.1 compatible with your base)
+  # GPU stack (matches base image CUDA 12.1)
   - pytorch=2.3.1
   - pytorch-cuda=12.1
-  - cuda-version=12.1  # meta, helps constrain builds
+  - cuda-version=12.1
 
-  # scverse + analysis
+  # scverse / analysis
   - scanpy=1.10.3
   - anndata=0.10.9
   - numpy=1.26
@@ -22,24 +22,23 @@ dependencies:
   - scikit-learn=1.5
   - umap-learn=0.5
   - matplotlib=3.9
-  - pynndescent=0.5
   - seaborn=0.13
+  - jupyterlab=4.2
   - ipykernel
   - ipywidgets
-  - jupyterlab=4.2
-  - rich>=13,<15
 
-  # scvi + friends (install via conda to bring consistent deps)
+  # scvi + runtime deps (conda to avoid import-time surprises)
   - scvi-tools=1.1.5
   - pytorch-lightning=2.1
   - pyro-ppl
   - ml-collections
-  # (Keep JAX CPU to satisfy optional imports; it won’t be used by your Torch path)
-  - jax
-  - jaxlib
+  - rich>=13,<15
+  - python-annoy  # avoids compiling annoy from pip
 
-  # R side via apt in the .def (not here)
+  # Nice-to-haves often used in notebooks
+  - h5py
+  - numba
+  - pynndescent
 
   - pip:
       - scrublet==0.2.3
-      - annoy==1.17.3
