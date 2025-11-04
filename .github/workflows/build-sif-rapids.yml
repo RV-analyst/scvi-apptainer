@@ -1,0 +1,40 @@
+name: Build Apptainer SIF from NVIDIA
+
+on:
+  # 1. Allow manual triggers from the GitHub "Actions" tab
+  workflow_dispatch:
+
+  # 2. Trigger automatically ONLY when you change the recipe file
+  push:
+    paths:
+      # --- UPDATED ---
+      # Now only triggers if the file inside 'apptainer/' changes
+      - 'apptainer/single-cell-analysis.def'
+      # ---
+      - '.github/workflows/build-sif-rapids.yml' # <-- I updated this path to match the new filename
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Apptainer
+        uses: eWaterCycle/setup-apptainer@v8
+        with:
+          apptainer-version: '1.3.1' # Use a specific, modern version
+
+      - name: Build Apptainer Image (.sif)
+        run: |
+          # --- UPDATED ---
+          # Point the build command to the new file path
+          apptainer build --fakeroot sc-analysis.sif apptainer/single-cell-analysis.def
+
+      - name: Upload Apptainer .sif as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apptainer-sif
+          path: sc-analysis.sif
+          if-no-files-found: error
+          retention-days: 7 # Keep artifact for 7 days
